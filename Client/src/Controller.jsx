@@ -23,7 +23,8 @@ export const AuthProvider = ({children}) =>{
     const [inputPoints,setInputPoints] = useState([]);
     const [action,setAction] = useState('none');
     const [cursor,setCursor] = useState('default')
-    const [selectedElement,setSelectedElement] = useState(null)
+    const [selectedElement,setSelectedElement] = useState(null);
+    const [options,setOptions] = useState(false)
 
     useEffect(() =>{
         if(currentElement === 'rectangle' || currentElement === 'circle' || currentElement === 'line' || currentElement === 'triangle' || currentElement === 'pen' || currentElement === 'arrow'){
@@ -88,7 +89,7 @@ export const AuthProvider = ({children}) =>{
     function createElement(id,x1,y1,x2,y2,type){
         // console.log(currentElement)
         if(type === 'line' ){
-            const roughElement = generator.line(x1,y1,x2,y2, { stroke: borderColor, roughness: roughness, strokeWidth: strokeWidth, fillStyle: fillStyle ,dashArray: [100,50]});
+            const roughElement = generator.line(x1,y1,x2,y2, { stroke: borderColor, roughness: roughness, strokeWidth: strokeWidth, fillStyle: fillStyle});
             setSideMenu('shapes')
             return {id:id,type: 'line',x1: x1, y1: y1, x2: x2, y2: y2, roughElement };
         }
@@ -106,7 +107,7 @@ export const AuthProvider = ({children}) =>{
             return { id:id,type: 'circle',x1: x1, y1: y1, x2: x2, y2: y2 ,centerX: centerX,centerY: centerY,radius: radius, roughElement };
         }
         else if(type === 'triangle'){
-            const roughElement = {shape: 'triangle',x1: x1, y1: y1, x2: x2, y2: y2,fill: fill, stroke: borderColor,strokeWidth: 4}
+            const roughElement = {x1: x1, y1: y1, x2: x2, y2: y2,fill: fill, stroke: borderColor,strokeWidth: 4}
             return {id:id,type: 'triangle', x1:x1,y1:y1,x2:x2,y2:y2,roughElement}
         }
         else if(currentElement === 'pointer'){
@@ -133,7 +134,6 @@ export const AuthProvider = ({children}) =>{
         }
         else if (currentElement === 'images'){
             setIsDrawing(false)
-            // console.log("Current Element is images")
             const roughElement = {shape: 'images',id:id, x1: x1, y1: y1, x2: x2, y2: y2};
             const element = {x1,y1,x2,y2,roughElement};
             setElements((prevElement) => [...prevElement,element])
@@ -154,7 +154,7 @@ export const AuthProvider = ({children}) =>{
                 return { x1: clientX, y1, x2, y2: clientY };
             case "br":
             case "end":
-                return { x1, y1, x2: clientX, clientY};
+                return { x1, y1, x2: clientX, y2:clientY};
             case "top":
                 return {x1: x1, y1:clientY, x2:x2, y2:y2};
             case "bottom": 
@@ -180,14 +180,14 @@ export const AuthProvider = ({children}) =>{
             const maxX = Math.max(x1,x2);
             const minY = Math.min(y1,y2);
             const maxY = Math.max(y1,y2);
-            return { x1: minX, y1: minY, x2: maxX, y2: maxY }
+            return { x1: minX, y1: minY, x2: maxX, y2: maxY, type: type};
         }
         else if(type === 'line') {
             if(x1 < x2 || (x1 === x2 && y1 < y2)){
-                return { x1, y1, x2, y2 };
+                return { x1: x1, y1: y1, x2: x2, y2: y2,type: type };
             }
             else{
-                return { x1: x2, y1: y2, x2: x1, y2: y1}
+                return { x1: x2, y1: y2, x2: x1, y2: y1,type: type}
             }
         }
     }
@@ -284,20 +284,22 @@ export const AuthProvider = ({children}) =>{
         const {clientX, clientY} = event;
         if(currentElement === 'pointer' ) {
             const element = getElementAtPosition(clientX, clientY)
-            setSelectedElement(element)
-            console.log(selectedElement)
-            const offsetX = clientX - element.x1;
-            const offsetY = clientY - element.y1;
-            setSelectedElement({...element,offsetX,offsetY})
-            if(element.position === 'inside'){
-                setAction('moving');
-            }else{
-                setAction('resizing');
+            if(element){
+                setSelectedElement(element)
+                // console.log(selectedElement)
+                const offsetX = clientX - element.x1;
+                const offsetY = clientY - element.y1;
+                setSelectedElement({...element,offsetX,offsetY})
+                if(element.position === 'inside'){
+                    setAction('moving');
+                }else{
+                    setAction('resizing');
+                }
             }
         }
         else{
             // console.log(currentElement)
-            // setAction('drawing')
+            setAction('drawing')
             setIsDrawing(true);
             const index = elements.length;
             const id = index;
@@ -312,12 +314,13 @@ export const AuthProvider = ({children}) =>{
         if(currentElement === 'pointer' && selectedElement !== null && selectedElement !== undefined){
             const element = getElementAtPosition(clientX, clientY);
             // console.log(element.position)
-            event.target.style.cursor = element ? cursorForPosition(element.position) : "default"
+            event.target.style.cursor = element?.position ? cursorForPosition(element.position): "default"
             const {id,x1,y1,x2,y2,type,offsetX,offsetY} = selectedElement;
             const newX1 = clientX - offsetX;
             const newY1 = clientY - offsetY;
             
             if(selectedElement != null ){
+                console.log(action)
                 // console.log("moving")
                 if(action === 'moving' && (type === 'rectangle' || type === 'line' || type === 'circle' || type === 'arrow' || type === "triangle")){
                     const width = x2 - x1;
@@ -326,9 +329,9 @@ export const AuthProvider = ({children}) =>{
                 }else if(action === 'resizing' && (type === 'rectangle' || type === 'line' || type==='circle')){
                     const {id,type,position,...coordinates} = selectedElement;
                     const { x1, y1, x2, y2} = resizedCoordinates(clientX,clientY,position,coordinates);
+                    console.log(position)
                     updateElement(id,x1,y1,x2,y2,type);
                 }
-
             }
         }   
         else{
@@ -342,32 +345,33 @@ export const AuthProvider = ({children}) =>{
 
     const handleMouseUp = (e) =>{
         console.log(" Mouse Up")
-
+        console.log(currentElement)
+        
         if(selectedElement){
-            const index = selectedElement.id;
+            const id = selectedElement.id;
             if(action === 'drawing' || action === 'resizing'){
-                const {x1,y1,x2,y2} = adjustElementCoordinates(elements[index]);
+                const {x1,y1,x2,y2,type} = adjustElementCoordinates(elements[id]);
+                console.log(selectedElement)
                 updateElement(id,x1,y1,x2,y2,type);
             }
         }
-        setAction('none');
         
+        setCurrentElement('pointer')
         if(selectedElement) setSelectedElement(null)
         if(currentElement != 'pointer'){
-            setSelectedElement('null')
+            setSelectedElement(null)
         }
-        setCurrentElement('pointer')
-        console.log(currentElement)
-        
+            
         if(inputPoints) setInputPoints([])
         setIsDrawing(false);
-        console.log(action)
+        // console.log(action)
+        setAction('none');
         
     }
 
 
     return(
-        <context.Provider value = {{darkMode,setDarkMode,elements,handleDrawing,setHandleDrawing,showInput,handleMouseUp,handleMouseDown,handleMouseMove,setCurrentElement,currentElement,sideMenu,setFill,setFillWeight,setBorderColor,roughness,setRoughness,setFillStyle,text,setText,inputPoints,setInputPoints,setStrokeWidth,strokeWidth,cursor}}>
+        <context.Provider value = {{darkMode,setDarkMode,elements,handleDrawing,setHandleDrawing,showInput,handleMouseUp,handleMouseDown,handleMouseMove,setCurrentElement,currentElement,sideMenu,setFill,setFillWeight,setBorderColor,roughness,setRoughness,setFillStyle,text,setText,inputPoints,setInputPoints,setStrokeWidth,strokeWidth,cursor,options,setOptions}}>
             {children}
         </context.Provider>
     )

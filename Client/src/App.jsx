@@ -4,8 +4,7 @@ import Navbar from "./Navbar"
 import { useAuth } from "./Controller"
 
 function App() {
-
-  const {darkMode } = useAuth();
+  const { darkMode } = useAuth();
 
   return (
     <>

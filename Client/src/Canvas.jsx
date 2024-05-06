@@ -4,15 +4,16 @@ import rough from 'roughjs'
 
 function Canvas() {
     const canvasRef = useRef(null);
-    const {handleMouseDown , handleMouseMove, handleMouseUp,currentElement,elements,mode,inputPoints} = useAuth();
+    const {handleMouseDown , handleMouseMove, handleMouseUp,currentElement,elements,mode,inputPoints,darkMode} = useAuth();
 
     useLayoutEffect(() =>{
         const canvas = canvasRef.current;
         const ctx = canvas.getContext('2d');
         const rc = rough.canvas(canvas);
-        const generator = rough.generator()
+        // const generator = rough.generator()
         ctx.clearRect(0,0,canvas.width,canvas.height)
         ctx.save()
+        console.log(elements)
 
         elements?.forEach(({roughElement,x1,y1,x2,y2,type}) =>{
             console.log(roughElement)
@@ -85,16 +86,18 @@ function Canvas() {
     },[elements])
 
     return (
-        <div className = "bg-white dark:bg-zinc-800">
-            <canvas
-            id = "canvas"
-            width = {window.innerWidth}
-            height = {window.innerHeight}
-            onMouseDown={ handleMouseDown }
-            onMouseMove={ handleMouseMove }
-            onMouseUp={ handleMouseUp }
-            ref = {canvasRef}
-            />
+        <div >
+            <div className = "bg-white dark:bg-zinc-800">
+                <canvas
+                id = "canvas"
+                width = {window.innerWidth}
+                height = {window.innerHeight}
+                onMouseDown={ handleMouseDown }
+                onMouseMove={ handleMouseMove }
+                onMouseUp={ handleMouseUp }
+                ref = {canvasRef}
+                />
+            </div>
         </div>
     )
 }

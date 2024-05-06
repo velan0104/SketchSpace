@@ -10,8 +10,13 @@ import { useAuth } from './Controller.jsx';
 
 
 const Navbar = () => {
-    const [options,setOptions] = useState(false)
-    const { setCurrentElement, setDarkMode, darkMode, sideMenu, setFill, setBorderColor, setFillWeight, setFillStyle, setStrokeWidth, setRoughness, fillWeight, strokeWidth, roughness, currentElement} = useAuth();
+
+    const { setCurrentElement, setDarkMode, darkMode, sideMenu, setFill, setBorderColor, setFillWeight, setFillStyle, setStrokeWidth, setRoughness, fillWeight, strokeWidth, roughness, currentElement,options,setOptions} = useAuth();
+    
+    const handleSideBar = () =>{
+        if(options) setOptions(false);
+        else setOptions(true);
+    }
     
   return (
     <>
@@ -19,7 +24,7 @@ const Navbar = () => {
             <div>
                 <button 
                 className = "h-12 px-5 border-2 border-red-500 rounded-md hover:bg-red-500 hover:text-white"
-                onClick = {() => setOptions(!options)}>
+                onClick = {handleSideBar}>
                     <RxTextAlignJustify />
                 </button>   
             </div>
