@@ -5,9 +5,9 @@ import './index.css'
 import { AuthProvider } from './Controller.jsx'
 
 ReactDOM.createRoot(document.getElementById('root')).render(
-  <AuthProvider>  
-    <React.StrictMode>
+  <React.StrictMode>
+    <AuthProvider>  
       <App />
-    </React.StrictMode>
-  </AuthProvider>,
+    </AuthProvider>,
+  </React.StrictMode>
 )

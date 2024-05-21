@@ -1,24 +1,38 @@
-import React, { useLayoutEffect, useRef } from 'react';
+import React, { useLayoutEffect, useRef, useEffect, useState } from 'react';
 import { useAuth } from './Controller.jsx';
 import rough from 'roughjs'
 
 function Canvas() {
+    const [updatedElement,setUpdatedElement] = useState({})
     const canvasRef = useRef(null);
-    const {handleMouseDown , handleMouseMove, handleMouseUp,currentElement,elements,mode,inputPoints,darkMode} = useAuth();
+    const textRef = useRef(null);
+    const {handleMouseDown , handleMouseMove, handleMouseUp,elements,action,selectedElement,handleBlur,currentElement} = useAuth();
+    
+    useEffect(() =>{
+        // console.log("Action: " ,action)
+        const textArea = textRef.current;
+        if(action === 'writing'){
+            console.log("selected Eleement: ", selectedElement)
+            setTimeout(() => {
+                textArea.focus();
+                textArea.value = selectedElement.text;
+            },0)
+        }
+    },[action,selectedElement])
 
     useLayoutEffect(() =>{
         const canvas = canvasRef.current;
         const ctx = canvas.getContext('2d');
         const rc = rough.canvas(canvas);
-        // const generator = rough.generator()
         ctx.clearRect(0,0,canvas.width,canvas.height)
         ctx.save()
-        console.log(elements)
 
-        elements?.forEach(({roughElement,x1,y1,x2,y2,type}) =>{
-            console.log(roughElement)
+        elements?.forEach((element) =>{
+            console.log(element)
+            const {roughElement,x1,y1,x2,y2,type} = element;
+            // console.log(roughElement)
             if(type === 'rectangle' || type === 'circle' || type === 'line'){
-                console.log(type)
+                // console.log(type)
                 rc.draw(roughElement)
             }
             else if(type === 'triangle'){
@@ -72,21 +86,27 @@ function Canvas() {
                 const myPath = new Path2D(roughElement.path);
                 ctx.fill(myPath)
                 ctx.stroke();
-
-                // ctx.beginPath();
-                // ctx.moveTo(inputPoints[0][0], inputPoints[0][1]);
-                // for (let i = 1; i < inputPoints.length; i++) {
-                //     const [ x, y ] = inputPoints[i];
-                //     ctx.lineTo(x, y);
-                // }
-                // ctx.stroke();
-                // ctx.closePath()
+            }
+            else if(type === 'text'){
+                setUpdatedElement({x: x1, y: y1});
+                ctx.textBaseline = "top";
+                ctx.font = "24px Freestyle-Script";
+                ctx.fillText(element.text, x1,y1);
+                console.log(updatedElement)
             }
         })
     },[elements])
 
+
     return (
         <div >
+            {action === 'writing' && (
+            <textarea 
+            ref = {textRef} 
+            onBlur = {handleBlur}
+            style = {{ top: `${updatedElement.y}px`, left: `${updatedElement.x}px`, resize: "auto", whiteSpace: "pre", background: "transparent"}}
+            className = {`fixed text-[Freestyle-Script] `} />
+            )}  
             <div className = "bg-white dark:bg-zinc-800">
                 <canvas
                 id = "canvas"
@@ -96,6 +116,7 @@ function Canvas() {
                 onMouseMove={ handleMouseMove }
                 onMouseUp={ handleMouseUp }
                 ref = {canvasRef}
+                // style = {{ position: "absolute"}}
                 />
             </div>
         </div>

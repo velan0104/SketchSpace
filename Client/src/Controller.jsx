@@ -4,6 +4,33 @@ import { getStroke } from 'perfect-freehand'
 
 export const context = createContext();
 
+const useHistory = initialState => {
+    const [index,setIndex] = useState(0);
+    const [history,setHistory] = useState([initialState]);
+
+
+    const setState = (action, overwrite = false) =>{
+        const newState = typeof action === "function" ? action(history[index]) : action;
+        if(overwrite) {
+            const historyCopy = [...history];
+            historyCopy[index] = newState;
+            setHistory(historyCopy);
+        }else{
+            const updatedState = [...history].slice(0, index + 1);
+            setHistory([...updatedState, newState]);
+            setIndex(prevState => prevState + 1);
+        }
+    };
+
+    // console.log(history)
+    const undo = () => index > 0 && setIndex(prevState => prevState - 1);
+    const redo = () => index < history.length - 1 && setIndex(prevState => prevState + 1);
+
+    return [history[index], setState, undo, redo];
+
+}
+
+
 export const AuthProvider = ({children}) =>{
     const [currentElement,setCurrentElement] = useState('pointer')
     const [handleDrawing,setHandleDrawing] = useState('');
@@ -13,21 +40,25 @@ export const AuthProvider = ({children}) =>{
     const [roughness,setRoughness] = useState('0');
     const [fillWeight,setFillWeight] = useState('3');
     const [fillStyle, setFillStyle] = useState('cross-hatch');
-    const[elements, setElements] = useState([]);
+    const [elements, setElements, undo, redo] = useHistory([]);
     const [sideMenu,setSideMenu] = useState(false);
     const [isDrawing,setIsDrawing] = useState(false);
-    const [text,setText] = useState("");
     const generator = rough.generator();
     const [strokeWidth, setStrokeWidth] = useState('3');
-    const [showInput,setShowInput] = useState('');
     const [inputPoints,setInputPoints] = useState([]);
     const [action,setAction] = useState('none');
-    const [cursor,setCursor] = useState('default')
     const [selectedElement,setSelectedElement] = useState(null);
     const [options,setOptions] = useState(false)
 
+
+    // useEffect(() =>{
+    //     console.log("Updated value of Selected Element: ", selectedElement)
+    // },[selectedElement])
+    // useEffect(() =>{
+    //     if(currentElement === 'eraser') setSelectedElement('eraser')
+    // }, [currentElement])
     useEffect(() =>{
-        if(currentElement === 'rectangle' || currentElement === 'circle' || currentElement === 'line' || currentElement === 'triangle' || currentElement === 'pen' || currentElement === 'arrow'){
+        if(currentElement !== 'pointer' || selectedElement !== null || selectedElement != undefined){
             setSideMenu('shapes')
             return;
         }
@@ -35,23 +66,10 @@ export const AuthProvider = ({children}) =>{
             setSideMenu(null)
             return;
         }
-        else if(currentElement === 'images'){
-            createElement(100,100,100,100);
-        }
 
     },[currentElement])
 
-    useEffect(() =>{
-        if(selectedElement !== 'none'){
-            setCursor('move')
-        }else{
-            setCursor('default')
-        }
-        console.log("Frome Selected Element: ")
-        console.log(selectedElement)
-    },[selectedElement])
-
-    const average = (a, b) => (a + b) / 2
+    const average = (a, b) => (a + b) / 2;
 
     function getSvgPathFromStroke(points, closed = true) {
         const len = points.length
@@ -87,9 +105,11 @@ export const AuthProvider = ({children}) =>{
     }
    
     function createElement(id,x1,y1,x2,y2,type){
-        // console.log(currentElement)
+
+        // console.log("Creating Element: "  + " x1: " + x1 + " y1: " + y1 + " x2: " + x2 + " y2: " + y2 + " type: " + type );
+
         if(type === 'line' ){
-            const roughElement = generator.line(x1,y1,x2,y2, { stroke: borderColor, roughness: roughness, strokeWidth: strokeWidth, fillStyle: fillStyle});
+            const roughElement = generator.line(x1,y1,x2,y2, { stroke: borderColor, roughness: roughness, strokeWidth: 1, fillStyle: fillStyle});
             setSideMenu('shapes')
             return {id:id,type: 'line',x1: x1, y1: y1, x2: x2, y2: y2, roughElement };
         }
@@ -110,35 +130,29 @@ export const AuthProvider = ({children}) =>{
             const roughElement = {x1: x1, y1: y1, x2: x2, y2: y2,fill: fill, stroke: borderColor,strokeWidth: 4}
             return {id:id,type: 'triangle', x1:x1,y1:y1,x2:x2,y2:y2,roughElement}
         }
+        else if(type === 'arrow'){
+            const roughElement = {x1:x1, y1: y1, x2: x2, y2: y2,fill: fill, stroke: borderColor,strokeWidth: 4}
+            return { id:id,type:'arrow',x1,y1,x2,y2,roughElement}
+        }
+        else if(type === 'pen'){
+            setInputPoints([...inputPoints, { x: x2, y: y2}])
+            const stroke = getStroke(inputPoints,{
+                smoothing: 0.99,
+                size: 10,
+            })
+            const pathData = getSvgPathFromStroke(stroke);
+            const roughElement = {shape: 'draw',fill: fill,x1: x1,y1:y1,x2: x2, y2: y2,path: pathData}
+            return { id:id,type: 'pen',x1,y1,x2,y2,roughElement,points: inputPoints}
+        }
+        else if(type === 'text'){
+            const roughElement = {}
+            return { id: id, type: 'text', text: "",x1, y1, x2 ,y2, roughElement}
+        }
         else if(currentElement === 'pointer'){
             setCurrentElement('pointer');
             setIsDrawing(false);
         }
-        else if(type === 'arrow'){
-            const roughElement = {shape: 'arrow', x1:x1, y1: y1, x2: x2, y2: y2,fill: fill, stroke: borderColor,strokeWidth: 4}
-            return { id:id,type:'arrow',x1,y1,x2,y2,roughElement}
-        }
-        else if(type === 'text'){
-            const roughElement = {shape: 'pen',text: text,fill: fill,x: x1, y: y1};
-            return { id:id,type: 'text',x1,y1,x2,y2,roughElement}
-        }
-        else if(currentElement === 'pen'){
-            setInputPoints([...inputPoints, [x2, y2]])
-            const stroke = getStroke(inputPoints,{
-                smoothing: 0.99,
-                size: 50,
-            })
-            const pathData = getSvgPathFromStroke(stroke);
-            const roughElement = {shape: 'draw',fill: fill,x1: x1,y1:y1,x2: x2, y2: y2,points: inputPoints,path: pathData}
-            return { id:id,type: 'pen',x1,y1,x2,y2,roughElement}
-        }
-        else if (currentElement === 'images'){
-            setIsDrawing(false)
-            const roughElement = {shape: 'images',id:id, x1: x1, y1: y1, x2: x2, y2: y2};
-            const element = {x1,y1,x2,y2,roughElement};
-            setElements((prevElement) => [...prevElement,element])
-            return;
-        }
+        
 
     }
 
@@ -163,10 +177,16 @@ export const AuthProvider = ({children}) =>{
                 return {x1: clientX, y1:y1,x2:x2,y2:y2};
             case "right":
                 return {x1: x1, y1:y1, x2: clientX, y2:y2};
+            case "topCorner": 
+                return {x1: clientX, y1: clientY, x2: x2, y2: y2};
+            case "rightCorner":
+            case "leftCorner":
+                return {x1: x1, y1: y1, x2: clientX, y2: clientY};
             default:
                 return null;
         }
     }
+
     const getElementAtPosition = (x,y) =>{
         return elements
                 .map(element => ({...element, position: positionWithinElement(x,y,element)}))
@@ -205,6 +225,7 @@ export const AuthProvider = ({children}) =>{
     }
 
     const positionWithinElement = (x,y,element) => {
+        // console.log(element)
         const {type,x1,y1,x2,y2} = element;
         if(type === 'rectangle'){
             const topLeft = nearPoint(x, y, x1, y1, "tl");
@@ -231,12 +252,22 @@ export const AuthProvider = ({children}) =>{
         }
         else if(type === 'triangle' ){
             const x3 = x1 - (x2 - x1)
-            const minX = Math.min(x3,x2);
-            const maxX = Math.max(x3,x2);
-            const minY = Math.min(y1,y2);
-            const maxY = Math.max(y1,y2);
-            // return x >= x3 && x <= x2 && y >= y1 && y <= y2;
-            return x >= minX && x <= maxX && y >= minY && y <= maxY;
+            const top = nearPoint( x , y, x1, y1, "topCorner");
+            const left = nearPoint( x, y, x3 , y2, "leftCorner");
+            const right = nearPoint( x, y, x2, y2, "rightCorner");
+            const inside = (x >= x3 && x <= x2 && y >= y1 && y <= y2) ? "inside" : null;
+            return top || left || right || inside; 
+        }
+        else if(type === 'pen'){
+            const betweenAnyPoint = element.points.some((point, index) =>{  
+                const nextPoint = element.points[index + 1];
+                if(!nextPoint) return false;
+                return onLine(point.x,point.y,nextPoint.x,nextPoint.y,x,y,5) !== null;
+            })
+
+            return betweenAnyPoint ? "inside" : null;
+        }else if(type === 'text'){
+            return x >= x1 && x <= x2 && y >= y1 && y <= y2 ? "inside" : null;
         }
 
     }
@@ -245,11 +276,20 @@ export const AuthProvider = ({children}) =>{
         return Math.sqrt(Math.pow(a.x - b.x,2) + Math.pow(a.y - b.y,2));
     }
 
-    const updateElement = (id,x1,y1,x2,y2,type) =>{
-        const element = createElement(id,x1,y1,x2,y2,type);
+    const updateElement = (id,x1,y1,x2,y2,type,options) =>{
+        // console.log("Options: " ,options)
         const copyElement = [...elements];
-        copyElement[id] = element;
-        setElements(copyElement)
+        if(type === 'text'){
+            copyElement[id] = {
+                ...createElement(id,x1,y1,x1 + 100, y1 + 24, type),
+                text: options?.text,
+            }
+        }else{
+            const element = createElement(id,x1,y1,x2,y2,type);
+            copyElement[id] = element;
+        }
+        setElements(copyElement,true);
+        // console.log("Copy Element: " , elements)
     }
 
     const cursorForPosition = position =>{
@@ -258,120 +298,163 @@ export const AuthProvider = ({children}) =>{
             case "br":
             case "start":
             case "end":
+            case "rightCorner":
                 return "nwse-resize";
             case "tr":
             case "bl":
+            case "leftCorner":
                 return "nesw-resize";
             case "top":
             case "bottom":
+            case "topCorner": 
                 return "n-resize";
             case "left":
             case "right":
                 return "e-resize";
-            case "inside":
-                return "move";
             default:
-                return "default";
+                return "move";
         }
     }
 
+    const eraseElement = (element) =>{
+        const elementAfterErase = elements.filter((currElement, index) =>{
+            return element.id != index
+        });
+        setElements(elementAfterErase);
+    }
+
+
     const handleMouseDown = (event) =>{
-        // console.log(currentElement)
+        if(action === 'writing') return;
+
+        const {clientX, clientY} = event;
         if(action === 'moving' || action === 'resizing'){
             setAction('none');
             return;
         }
-        const {clientX, clientY} = event;
-        if(currentElement === 'pointer' ) {
+        if(currentElement === 'pointer' || currentElement === 'eraser') {
             const element = getElementAtPosition(clientX, clientY)
+            if(currentElement === 'eraser' && element){
+                eraseElement(element);
+                return;
+            }
             if(element){
                 setSelectedElement(element)
-                // console.log(selectedElement)
-                const offsetX = clientX - element.x1;
-                const offsetY = clientY - element.y1;
-                setSelectedElement({...element,offsetX,offsetY})
+                if(element.type === 'pen'){
+                    const xOffsets = element.points.map( point => clientX - point.x);
+                    const yOffsets = element.points.map( point => clientY - point.y);
+                    // console.log("X Offsets: " , xOffsets)
+                    setSelectedElement({...element, xOffsets, yOffsets});
+                }else{
+                    const offsetX = clientX - element.x1;
+                    const offsetY = clientY - element.y1;
+                    setSelectedElement({...element,offsetX,offsetY})
+                }
+                setElements(prevState => prevState)
                 if(element.position === 'inside'){
                     setAction('moving');
                 }else{
                     setAction('resizing');
                 }
             }
+            // console.log("Current selected element: " , selectedElement)
         }
         else{
-            // console.log(currentElement)
-            setAction('drawing')
             setIsDrawing(true);
-            const index = elements.length;
-            const id = index;
+            const id = elements.length;
             const element = createElement(id,clientX, clientY,clientX,clientY,currentElement);
+            if(element) setSelectedElement(element)
             setElements((prevElement) => [...prevElement,element]);
+            setAction( currentElement === "text" ? "writing" : "drawing");
         }
     }
 
     const handleMouseMove = (event) =>{
-        const { clientX, clientY} = event;
-        // console.log("x: " + clientX + " y: " + clientY)
-        if(currentElement === 'pointer' && selectedElement !== null && selectedElement !== undefined){
+        // console.log("currentElement: " , currentElement)
+        const { clientX, clientY } = event;
+        if(currentElement === 'pointer'){
             const element = getElementAtPosition(clientX, clientY);
-            // console.log(element.position)
-            event.target.style.cursor = element?.position ? cursorForPosition(element.position): "default"
-            const {id,x1,y1,x2,y2,type,offsetX,offsetY} = selectedElement;
-            const newX1 = clientX - offsetX;
-            const newY1 = clientY - offsetY;
-            
-            if(selectedElement != null ){
-                console.log(action)
-                // console.log("moving")
-                if(action === 'moving' && (type === 'rectangle' || type === 'line' || type === 'circle' || type === 'arrow' || type === "triangle")){
+            if(selectedElement === 'eraser') event.target.style.cursor = "cursor-cell";
+            else event.target.style.cursor = element?.position ? cursorForPosition(element.position): "default";
+            if( selectedElement !== null && selectedElement !== undefined){
+                const {id,x1,y1,x2,y2,type} = selectedElement;
+                if(action === 'moving' && (type === 'rectangle' || type === 'line' || type === 'circle' || type === 'arrow' || type === "triangle" || type === "text" )){
+                    const newX1 = clientX - selectedElement.offsetX;
+                    const newY1 = clientY - selectedElement.offsetY;
                     const width = x2 - x1;
                     const height = y2 - y1; 
-                    updateElement(id,newX1,newY1,newX1 + width,newY1 + height,type);
-                }else if(action === 'resizing' && (type === 'rectangle' || type === 'line' || type==='circle')){
+                    const options = (type === "text") ? { text: selectedElement.text } : {};
+                    console.log("Options at Mouse move: " , options)
+                    updateElement(id,newX1,newY1,newX1 + width,newY1 + height,type,options);
+                }
+                else if(action === 'moving' && type === 'pen'){
+                    const newPoints = selectedElement.points.map((_,index) => ({
+                       x: clientX - selectedElement.xOffsets[index],
+                       y: clientY - selectedElement.yOffsets[index],
+                    }));
+                    const elementsCopy = [...elements];
+                    elementsCopy[selectedElement.id] = {
+                        ...elementsCopy[selectedElement.id],
+                        points: newPoints,
+                    };
+                    // const {id, x1,x2,y1,y2,type} = selectedElement;
+                    // setInputPoints(newPoints)
+                    // createElement(id,x1,y1,x2,y2,type);
+                    setElements(elementsCopy,true)
+                }else if(action === 'resizing' && (type === 'rectangle' || type === 'line' || type==='circle' || type === 'triangle' || type === 'arrow')){
                     const {id,type,position,...coordinates} = selectedElement;
                     const { x1, y1, x2, y2} = resizedCoordinates(clientX,clientY,position,coordinates);
-                    console.log(position)
                     updateElement(id,x1,y1,x2,y2,type);
                 }
             }
         }   
         else{
             if(isDrawing){
-            const index = elements.length - 1;
-            const {id,x1,y1,type} = elements[index];
-            updateElement(id,x1,y1,clientX,clientY,type)}
+                const index = elements.length - 1;
+                const {id,x1,y1,type} = elements[index];
+                updateElement(id,x1,y1,clientX,clientY,type,{text: ""})
+            }
         }
-        
     }
 
-    const handleMouseUp = (e) =>{
-        console.log(" Mouse Up")
-        console.log(currentElement)
-        
+    const handleMouseUp = (event) =>{
+        const {clientX, clientY} = event;
         if(selectedElement){
             const id = selectedElement.id;
-            if(action === 'drawing' || action === 'resizing'){
-                const {x1,y1,x2,y2,type} = adjustElementCoordinates(elements[id]);
-                console.log(selectedElement)
-                updateElement(id,x1,y1,x2,y2,type);
+            if((action === 'drawing' || action === 'resizing') && (selectedElement.type !== 'pen' || currentElement !== 'pen')){
+                if(selectedElement.type === 'rectangle' || selectedElement.type === 'line'){
+                    const {x1,y1,x2,y2,type} = adjustElementCoordinates(elements[id]);
+                    updateElement(id,x1,y1,x2,y2,type);
+                }
+            }else if(selectedElement.type === 'text' && clientX - selectedElement.offsetX === selectedElement.x1 && clientY - selectedElement.offsetY === selectedElement.y1){
+                setAction("writing");
+                return;
             }
         }
         
-        setCurrentElement('pointer')
+        if (action === "writing") return;
+        setCurrentElement('pointer');
+        console.log(currentElement)
         if(selectedElement) setSelectedElement(null)
-        if(currentElement != 'pointer'){
-            setSelectedElement(null)
-        }
             
         if(inputPoints) setInputPoints([])
         setIsDrawing(false);
-        // console.log(action)
         setAction('none');
         
     }
 
+    const handleBlur = event =>{
+        const { id, x1, y1, type} = selectedElement;
+        setAction("none");
+        setSelectedElement(null);
+        setCurrentElement('pointer');
+        // console.log("Content: ", event.target.value);
+        updateElement(id,x1,y1,null,null, type, {text: event.target.value});
+    }
+
 
     return(
-        <context.Provider value = {{darkMode,setDarkMode,elements,handleDrawing,setHandleDrawing,showInput,handleMouseUp,handleMouseDown,handleMouseMove,setCurrentElement,currentElement,sideMenu,setFill,setFillWeight,setBorderColor,roughness,setRoughness,setFillStyle,text,setText,inputPoints,setInputPoints,setStrokeWidth,strokeWidth,cursor,options,setOptions}}>
+        <context.Provider value = {{darkMode,setDarkMode,elements,handleDrawing,setHandleDrawing,handleMouseUp,handleMouseDown,handleMouseMove,setCurrentElement,currentElement,sideMenu,setFill,setFillWeight,setBorderColor,roughness,setRoughness,setFillStyle,inputPoints,setInputPoints,setStrokeWidth,strokeWidth,options,setOptions,undo,redo,handleBlur,action}}>
             {children}
         </context.Provider>
     )

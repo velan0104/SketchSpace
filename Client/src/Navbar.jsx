@@ -11,7 +11,7 @@ import { useAuth } from './Controller.jsx';
 
 const Navbar = () => {
 
-    const { setCurrentElement, setDarkMode, darkMode, sideMenu, setFill, setBorderColor, setFillWeight, setFillStyle, setStrokeWidth, setRoughness, fillWeight, strokeWidth, roughness, currentElement,options,setOptions} = useAuth();
+    const { setCurrentElement, setDarkMode, darkMode, sideMenu, setFill, setBorderColor, setFillWeight, setFillStyle, setStrokeWidth, setRoughness, fillWeight, strokeWidth, roughness, currentElement,options,setOptions, undo, redo} = useAuth();
     
     const handleSideBar = () =>{
         if(options) setOptions(false);
@@ -89,8 +89,8 @@ const Navbar = () => {
         </nav>
 
         <section className = "fixed bottom-10 left-10 flex gap-5 dark:text-white">
-            <button className = "h-12 px-5 border-2 border-red-500 rounded-md hover:bg-red-500 hover:text-white"> Undo </button>
-            <button className = "h-12 px-5 border-2 border-red-500 rounded-md hover:bg-red-500 hover:text-white"> Redo </button>
+            <button onClick = {undo} className = "h-12 px-5 border-2 border-red-500 rounded-md hover:bg-red-500 hover:text-white"> Undo </button>
+            <button onClick = {redo} className = "h-12 px-5 border-2 border-red-500 rounded-md hover:bg-red-500 hover:text-white"> Redo </button>
         </section>
         {
             options && (
