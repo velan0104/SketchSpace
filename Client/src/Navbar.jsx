@@ -11,11 +11,26 @@ import { useAuth } from './Controller.jsx';
 
 const Navbar = () => {
 
-    const { setCurrentElement, setDarkMode, darkMode, sideMenu, setFill, setBorderColor, setFillWeight, setFillStyle, setStrokeWidth, setRoughness, fillWeight, strokeWidth, roughness, currentElement,options,setOptions, undo, redo} = useAuth();
+    const { setCurrentElement, setDarkMode, darkMode, sideMenu, setFill, setBorderColor, setFillWeight, setFillStyle, setStrokeWidth, setRoughness, fillWeight, strokeWidth, roughness, currentElement,options,setOptions, undo, redo, setImage,image,save,setSave,clear,setClear,scale,setScale,onZoom} = useAuth();
     
     const handleSideBar = () =>{
         if(options) setOptions(false);
         else setOptions(true);
+    }
+
+    const handleImage = (e) =>{
+        e.stopPropagation();
+        setImage(!image);
+    }
+
+    const handleSave = (e) =>{
+        e.stopPropagation();
+        setSave(!save)
+    }
+
+    const handleClear = (e) =>{
+        e.stopPropagation();
+        setClear(!clear);
     }
     
   return (
@@ -92,12 +107,18 @@ const Navbar = () => {
             <button onClick = {undo} className = "h-12 px-5 border-2 border-red-500 rounded-md hover:bg-red-500 hover:text-white"> Undo </button>
             <button onClick = {redo} className = "h-12 px-5 border-2 border-red-500 rounded-md hover:bg-red-500 hover:text-white"> Redo </button>
         </section>
+
+        <section className = "fixed bottom-10 right-10 flex gap-5 dark:text-white">
+            <button onClick = { () => onZoom(-0.01)}> - </button>
+            <span onClick = {() => setScale(1)}> {new Intl.NumberFormat("en-GB", { style: "percent"}).format(scale)} </span>
+            <button onClick = {() => onZoom(0.01)}> + </button>
+        </section>
         {
             options && (
                 <div className = "absolute top-24 mx-5 px-5 flex flex-col py-5 gap-5 bg-red-500 text-white rounded-md">
-                    <button className = "text-left px-5"> Save As </button>
-                    <button className = "text-left px-5"> Reset Canvas </button>
-                    <button className = "text-left px-5"> Import Image </button>
+                    <button className = "text-left px-5" onClick = {handleSave}> Save As </button>
+                    <button className = "text-left px-5" onClick = {handleClear}> Reset Canvas </button>
+                    <button className = "text-left px-5" onClick = {handleImage}> Import Image </button>
                     <button className = "text-left px-5"> Collaboration </button>
                     <button className = "text-left px-5"> Theme </button>
                 </div>

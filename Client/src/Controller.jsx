@@ -8,7 +8,6 @@ const useHistory = initialState => {
     const [index,setIndex] = useState(0);
     const [history,setHistory] = useState([initialState]);
 
-
     const setState = (action, overwrite = false) =>{
         const newState = typeof action === "function" ? action(history[index]) : action;
         if(overwrite) {
@@ -30,6 +29,34 @@ const useHistory = initialState => {
 
 }
 
+const usePressedKeys = () =>{
+    const [pressedKeys, setPressedKeys] = useState(new Set());
+
+    useEffect(() =>{
+        const handleKeyDown = event => {
+            setPressedKeys(prevKeys => new Set(prevKeys).add(event.key));
+        };
+        
+        const handleKeyUp = event => {
+            setPressedKeys(prevKeys => {
+                const updatedKeys = new Set(prevKeys);
+                updatedKeys.delete(event.key);
+                return updatedKeys;
+            });
+        }
+
+        window.addEventListener("keydown", handleKeyDown);
+        window.addEventListener("keyup", handleKeyUp);
+
+        return () => {
+            window.removeEventListener("keydown", handleKeyDown);
+            window.removeEventListener("keyup",handleKeyUp);
+        }
+    },[])
+
+    return pressedKeys;
+}
+
 
 export const AuthProvider = ({children}) =>{
     const [currentElement,setCurrentElement] = useState('pointer')
@@ -48,15 +75,17 @@ export const AuthProvider = ({children}) =>{
     const [inputPoints,setInputPoints] = useState([]);
     const [action,setAction] = useState('none');
     const [selectedElement,setSelectedElement] = useState(null);
-    const [options,setOptions] = useState(false)
+    const [options,setOptions] = useState(false);
+    const [image,setImage] = useState(false);
+    const [save,setSave] = useState(false);
+    const [clear,setClear] = useState(false);
+    const [panOffset,setPanOffset] = useState({x: 0, y: 0});
+    const [startPanMousePosition,setStartPanMousePosition] = useState({x: 0, y: 0});
+    const [scale,setScale] = useState(1);
+    const [scaleOffset,setScaleOffset] = useState({x:0,y:0});
+    const pressedKeys = usePressedKeys();
 
-
-    // useEffect(() =>{
-    //     console.log("Updated value of Selected Element: ", selectedElement)
-    // },[selectedElement])
-    // useEffect(() =>{
-    //     if(currentElement === 'eraser') setSelectedElement('eraser')
-    // }, [currentElement])
+ 
     useEffect(() =>{
         if(currentElement !== 'pointer' || selectedElement !== null || selectedElement != undefined){
             setSideMenu('shapes')
@@ -68,6 +97,21 @@ export const AuthProvider = ({children}) =>{
         }
 
     },[currentElement])
+
+    useEffect(() =>{
+        const panOrZoomFunction = event =>{
+            
+            setPanOffset(prevState => ({
+                x: prevState.x - event.deltaX,
+                y: prevState.y - event.deltaY,
+            }))
+        };
+
+        document.addEventListener('wheel', panOrZoomFunction);
+        return () =>{
+            document.removeEventListener("wheel", panOrZoomFunction);
+        }
+    },[])
 
     const average = (a, b) => (a + b) / 2;
 
@@ -103,10 +147,35 @@ export const AuthProvider = ({children}) =>{
       
         return result
     }
+
+    const getMouseCoordinates = event =>{
+        const clientX = (event.clientX - panOffset.x * scale + scaleOffset.x)/scale;
+        const clientY = (event.clientY - panOffset.y * scale + scaleOffset.y)/scale;
+        return { clientX, clientY };
+    }
+
+    const onZoom = delta =>{
+        setScale(prevState => Math.min(Math.max(prevState + delta, 0.1),2));
+    }
+
+    useEffect(() =>{
+        const undoRedoFunction = event => {
+            if((event.metaKey || event.ctrlKey) && event.key === "z"){
+                if(event.shiftKey){
+                    redo();
+                }else{
+                    undo();
+                }
+            }
+        };
+
+        document.addEventListener("keydown", undoRedoFunction);
+        return () =>{
+            document.removeEventListener("keydown",undoRedoFunction)
+        }
+    },[undo,redo])
    
     function createElement(id,x1,y1,x2,y2,type){
-
-        // console.log("Creating Element: "  + " x1: " + x1 + " y1: " + y1 + " x2: " + x2 + " y2: " + y2 + " type: " + type );
 
         if(type === 'line' ){
             const roughElement = generator.line(x1,y1,x2,y2, { stroke: borderColor, roughness: roughness, strokeWidth: 1, fillStyle: fillStyle});
@@ -152,7 +221,6 @@ export const AuthProvider = ({children}) =>{
             setCurrentElement('pointer');
             setIsDrawing(false);
         }
-        
 
     }
 
@@ -327,7 +395,13 @@ export const AuthProvider = ({children}) =>{
     const handleMouseDown = (event) =>{
         if(action === 'writing') return;
 
-        const {clientX, clientY} = event;
+        const {clientX, clientY} = getMouseCoordinates(event);
+
+        if(event.button === 1){
+            setAction("panning");
+            setStartPanMousePosition({ x: clientX, y: clientY});
+            return;
+        }
         if(action === 'moving' || action === 'resizing'){
             setAction('none');
             return;
@@ -371,10 +445,21 @@ export const AuthProvider = ({children}) =>{
 
     const handleMouseMove = (event) =>{
         // console.log("currentElement: " , currentElement)
-        const { clientX, clientY } = event;
-        if(currentElement === 'pointer'){
+        const { clientX, clientY } = getMouseCoordinates(event);
+
+        if(action === "panning"){
+            const deltaX = clientX - startPanMousePosition.x;
+            const deltaY = clientY - startPanMousePosition.y;
+            setPanOffset( prevState => ({
+                x: prevState.x + deltaX,
+                y: prevState.y + deltaY,
+            }))
+            return;
+        }
+
+        if(currentElement === 'pointer' || currentElement === 'eraser'){
             const element = getElementAtPosition(clientX, clientY);
-            if(selectedElement === 'eraser') event.target.style.cursor = "cursor-cell";
+            if(currentElement === 'eraser') event.target.style.cursor = "cursor-cell";
             else event.target.style.cursor = element?.position ? cursorForPosition(element.position): "default";
             if( selectedElement !== null && selectedElement !== undefined){
                 const {id,x1,y1,x2,y2,type} = selectedElement;
@@ -418,7 +503,7 @@ export const AuthProvider = ({children}) =>{
     }
 
     const handleMouseUp = (event) =>{
-        const {clientX, clientY} = event;
+        const {clientX, clientY} = getMouseCoordinates(event);
         if(selectedElement){
             const id = selectedElement.id;
             if((action === 'drawing' || action === 'resizing') && (selectedElement.type !== 'pen' || currentElement !== 'pen')){
@@ -454,7 +539,7 @@ export const AuthProvider = ({children}) =>{
 
 
     return(
-        <context.Provider value = {{darkMode,setDarkMode,elements,handleDrawing,setHandleDrawing,handleMouseUp,handleMouseDown,handleMouseMove,setCurrentElement,currentElement,sideMenu,setFill,setFillWeight,setBorderColor,roughness,setRoughness,setFillStyle,inputPoints,setInputPoints,setStrokeWidth,strokeWidth,options,setOptions,undo,redo,handleBlur,action}}>
+        <context.Provider value = {{darkMode,setDarkMode,elements,handleDrawing,setHandleDrawing,handleMouseUp,handleMouseDown,handleMouseMove,setCurrentElement,currentElement,sideMenu,setFill,setFillWeight,setBorderColor,roughness,setRoughness,setFillStyle,inputPoints,setInputPoints,setStrokeWidth,strokeWidth,options,setOptions,undo,redo,handleBlur,action,image,setImage,save,setSave,clear,setClear,setElements,panOffset,setPanOffset,scale,setScale,onZoom,setScaleOffset,scaleOffset}}>
             {children}
         </context.Provider>
     )
