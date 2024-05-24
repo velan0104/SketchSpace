@@ -8,18 +8,19 @@ Line no: 389 (Bug detected)
 
 
 21st May - (Evening): 
-- work on bug of drawing and text element.
-- Eraser tool
+- work on bug of drawing and text element. --- PENDING
+- Eraser tool --- DONE
 
 22nd May - (Morning):
-- Pan tool && Zoom Tool.
+- Pan tool && Zoom Tool.  -- DONE
 
 22nd May - (Evening) && 23rd May - (Morning):
-- Importing Images.
-- Save as Images.
+- Importing Images. --- DONE
+- Save as Images. --- DONE
 
 23rd - 25th:
 - Work on Live Collaboration features.
+- Browser Storage
 
 Next 3 days: 
 - UI design.

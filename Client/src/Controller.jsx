@@ -6,7 +6,11 @@ export const context = createContext();
 
 const useHistory = initialState => {
     const [index,setIndex] = useState(0);
-    const [history,setHistory] = useState([initialState]);
+    const [history,setHistory] = useState(() =>{
+        const element = window.localStorage.getItem('DRAWING_ELEMENTS');
+        if(!element) window.localStorage.setItem("DRAWING_ELEMENTS",[]);
+        return (element) ? [JSON.parse(element)] : [initialState]
+    });
 
     const setState = (action, overwrite = false) =>{
         const newState = typeof action === "function" ? action(history[index]) : action;
@@ -20,8 +24,7 @@ const useHistory = initialState => {
             setIndex(prevState => prevState + 1);
         }
     };
-
-    // console.log(history)
+    
     const undo = () => index > 0 && setIndex(prevState => prevState - 1);
     const redo = () => index < history.length - 1 && setIndex(prevState => prevState + 1);
 
@@ -59,9 +62,13 @@ const usePressedKeys = () =>{
 
 
 export const AuthProvider = ({children}) =>{
+
     const [currentElement,setCurrentElement] = useState('pointer')
     const [handleDrawing,setHandleDrawing] = useState('');
-    const [darkMode,setDarkMode] = useState(false);
+    const [theme,setTheme] = useState(() =>{
+        const storedTheme = window.localStorage.getItem('theme');
+        return storedTheme ? JSON.parse(storedTheme): 'light';
+    });
     const [fill,setFill] = useState('red');
     const [borderColor,setBorderColor] = useState('black');
     const [roughness,setRoughness] = useState('0');
@@ -74,7 +81,7 @@ export const AuthProvider = ({children}) =>{
     const [strokeWidth, setStrokeWidth] = useState('3');
     const [inputPoints,setInputPoints] = useState([]);
     const [action,setAction] = useState('none');
-    const [selectedElement,setSelectedElement] = useState(null);
+    const [selectedTool,setSelectedTool] = useState(null);
     const [options,setOptions] = useState(false);
     const [image,setImage] = useState(false);
     const [save,setSave] = useState(false);
@@ -84,10 +91,9 @@ export const AuthProvider = ({children}) =>{
     const [scale,setScale] = useState(1);
     const [scaleOffset,setScaleOffset] = useState({x:0,y:0});
     const pressedKeys = usePressedKeys();
-
- 
+    
     useEffect(() =>{
-        if(currentElement !== 'pointer' || selectedElement !== null || selectedElement != undefined){
+        if(currentElement !== 'pointer' || selectedTool !== null || selectedTool != undefined){
             setSideMenu('shapes')
             return;
         }
@@ -97,6 +103,14 @@ export const AuthProvider = ({children}) =>{
         }
 
     },[currentElement])
+    
+    useEffect(() =>{
+        window.localStorage.setItem("theme", JSON.stringify(theme));
+    },[theme])
+
+    useEffect(() =>{
+        localStorage.setItem("DRAWING_ELEMENTS", JSON.stringify(elements));
+    },[elements])
 
     useEffect(() =>{
         const panOrZoomFunction = event =>{
@@ -413,16 +427,16 @@ export const AuthProvider = ({children}) =>{
                 return;
             }
             if(element){
-                setSelectedElement(element)
+                setSelectedTool(element)
                 if(element.type === 'pen'){
                     const xOffsets = element.points.map( point => clientX - point.x);
                     const yOffsets = element.points.map( point => clientY - point.y);
                     // console.log("X Offsets: " , xOffsets)
-                    setSelectedElement({...element, xOffsets, yOffsets});
+                    setSelectedTool({...element, xOffsets, yOffsets});
                 }else{
                     const offsetX = clientX - element.x1;
                     const offsetY = clientY - element.y1;
-                    setSelectedElement({...element,offsetX,offsetY})
+                    setSelectedTool({...element,offsetX,offsetY})
                 }
                 setElements(prevState => prevState)
                 if(element.position === 'inside'){
@@ -431,13 +445,13 @@ export const AuthProvider = ({children}) =>{
                     setAction('resizing');
                 }
             }
-            // console.log("Current selected element: " , selectedElement)
+            // console.log("Current selected element: " , selectedTool)
         }
         else{
             setIsDrawing(true);
             const id = elements.length;
             const element = createElement(id,clientX, clientY,clientX,clientY,currentElement);
-            if(element) setSelectedElement(element)
+            if(element) setSelectedTool(element)
             setElements((prevElement) => [...prevElement,element]);
             setAction( currentElement === "text" ? "writing" : "drawing");
         }
@@ -461,33 +475,33 @@ export const AuthProvider = ({children}) =>{
             const element = getElementAtPosition(clientX, clientY);
             if(currentElement === 'eraser') event.target.style.cursor = "cursor-cell";
             else event.target.style.cursor = element?.position ? cursorForPosition(element.position): "default";
-            if( selectedElement !== null && selectedElement !== undefined){
-                const {id,x1,y1,x2,y2,type} = selectedElement;
+            if( selectedTool !== null && selectedTool !== undefined){
+                const {id,x1,y1,x2,y2,type} = selectedTool;
                 if(action === 'moving' && (type === 'rectangle' || type === 'line' || type === 'circle' || type === 'arrow' || type === "triangle" || type === "text" )){
-                    const newX1 = clientX - selectedElement.offsetX;
-                    const newY1 = clientY - selectedElement.offsetY;
+                    const newX1 = clientX - selectedTool.offsetX;
+                    const newY1 = clientY - selectedTool.offsetY;
                     const width = x2 - x1;
                     const height = y2 - y1; 
-                    const options = (type === "text") ? { text: selectedElement.text } : {};
+                    const options = (type === "text") ? { text: selectedTool.text } : {};
                     console.log("Options at Mouse move: " , options)
                     updateElement(id,newX1,newY1,newX1 + width,newY1 + height,type,options);
                 }
                 else if(action === 'moving' && type === 'pen'){
-                    const newPoints = selectedElement.points.map((_,index) => ({
-                       x: clientX - selectedElement.xOffsets[index],
-                       y: clientY - selectedElement.yOffsets[index],
+                    const newPoints = selectedTool.points.map((_,index) => ({
+                       x: clientX - selectedTool.xOffsets[index],
+                       y: clientY - selectedTool.yOffsets[index],
                     }));
                     const elementsCopy = [...elements];
-                    elementsCopy[selectedElement.id] = {
-                        ...elementsCopy[selectedElement.id],
+                    elementsCopy[selectedTool.id] = {
+                        ...elementsCopy[selectedTool.id],
                         points: newPoints,
                     };
-                    // const {id, x1,x2,y1,y2,type} = selectedElement;
+                    // const {id, x1,x2,y1,y2,type} = selectedTool;
                     // setInputPoints(newPoints)
                     // createElement(id,x1,y1,x2,y2,type);
                     setElements(elementsCopy,true)
                 }else if(action === 'resizing' && (type === 'rectangle' || type === 'line' || type==='circle' || type === 'triangle' || type === 'arrow')){
-                    const {id,type,position,...coordinates} = selectedElement;
+                    const {id,type,position,...coordinates} = selectedTool;
                     const { x1, y1, x2, y2} = resizedCoordinates(clientX,clientY,position,coordinates);
                     updateElement(id,x1,y1,x2,y2,type);
                 }
@@ -504,14 +518,14 @@ export const AuthProvider = ({children}) =>{
 
     const handleMouseUp = (event) =>{
         const {clientX, clientY} = getMouseCoordinates(event);
-        if(selectedElement){
-            const id = selectedElement.id;
-            if((action === 'drawing' || action === 'resizing') && (selectedElement.type !== 'pen' || currentElement !== 'pen')){
-                if(selectedElement.type === 'rectangle' || selectedElement.type === 'line'){
+        if(selectedTool){
+            const id = selectedTool.id;
+            if((action === 'drawing' || action === 'resizing') && (selectedTool.type !== 'pen' || currentElement !== 'pen')){
+                if(selectedTool.type === 'rectangle' || selectedTool.type === 'line'){
                     const {x1,y1,x2,y2,type} = adjustElementCoordinates(elements[id]);
                     updateElement(id,x1,y1,x2,y2,type);
                 }
-            }else if(selectedElement.type === 'text' && clientX - selectedElement.offsetX === selectedElement.x1 && clientY - selectedElement.offsetY === selectedElement.y1){
+            }else if(selectedTool.type === 'text' && clientX - selectedTool.offsetX === selectedTool.x1 && clientY - selectedTool.offsetY === selectedTool.y1){
                 setAction("writing");
                 return;
             }
@@ -520,7 +534,7 @@ export const AuthProvider = ({children}) =>{
         if (action === "writing") return;
         setCurrentElement('pointer');
         console.log(currentElement)
-        if(selectedElement) setSelectedElement(null)
+        if(selectedTool) setSelectedTool(null)
             
         if(inputPoints) setInputPoints([])
         setIsDrawing(false);
@@ -529,9 +543,9 @@ export const AuthProvider = ({children}) =>{
     }
 
     const handleBlur = event =>{
-        const { id, x1, y1, type} = selectedElement;
+        const { id, x1, y1, type} = selectedTool;
         setAction("none");
-        setSelectedElement(null);
+        setSelectedTool(null);
         setCurrentElement('pointer');
         // console.log("Content: ", event.target.value);
         updateElement(id,x1,y1,null,null, type, {text: event.target.value});
@@ -539,7 +553,7 @@ export const AuthProvider = ({children}) =>{
 
 
     return(
-        <context.Provider value = {{darkMode,setDarkMode,elements,handleDrawing,setHandleDrawing,handleMouseUp,handleMouseDown,handleMouseMove,setCurrentElement,currentElement,sideMenu,setFill,setFillWeight,setBorderColor,roughness,setRoughness,setFillStyle,inputPoints,setInputPoints,setStrokeWidth,strokeWidth,options,setOptions,undo,redo,handleBlur,action,image,setImage,save,setSave,clear,setClear,setElements,panOffset,setPanOffset,scale,setScale,onZoom,setScaleOffset,scaleOffset}}>
+        <context.Provider value = {{theme,setTheme,elements,handleDrawing,setHandleDrawing,handleMouseUp,handleMouseDown,handleMouseMove,setCurrentElement,currentElement,sideMenu,setFill,setFillWeight,setBorderColor,roughness,setRoughness,setFillStyle,inputPoints,setInputPoints,setStrokeWidth,strokeWidth,options,setOptions,undo,redo,handleBlur,action,image,setImage,save,setSave,clear,setClear,setElements,panOffset,setPanOffset,scale,setScale,onZoom,setScaleOffset,scaleOffset}}>
             {children}
         </context.Provider>
     )
@@ -548,3 +562,14 @@ export const AuthProvider = ({children}) =>{
 export const useAuth = () =>{
     return useContext(context);
 }
+
+
+
+        // if(localStorage.getItem("DrawingElements")){
+        //     let currentState = JSON.parse(localStorage.getItem("DrawingElements"));
+        //     if(currentState !== null){
+        //         setElements(currentState);
+        //     }
+        // }else{
+        //     localStorage.setItem("DrawingElements",JSON.stringify(elements))
+        // }

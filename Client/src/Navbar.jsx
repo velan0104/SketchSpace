@@ -11,7 +11,7 @@ import { useAuth } from './Controller.jsx';
 
 const Navbar = () => {
 
-    const { setCurrentElement, setDarkMode, darkMode, sideMenu, setFill, setBorderColor, setFillWeight, setFillStyle, setStrokeWidth, setRoughness, fillWeight, strokeWidth, roughness, currentElement,options,setOptions, undo, redo, setImage,image,save,setSave,clear,setClear,scale,setScale,onZoom} = useAuth();
+    const { setCurrentElement, setTheme, theme, sideMenu, setFill, setBorderColor, setFillWeight, setFillStyle, setStrokeWidth, setRoughness, fillWeight, strokeWidth, roughness, currentElement,options,setOptions, undo, redo, setImage,image,save,setSave,clear,setClear,scale,setScale,onZoom} = useAuth();
     
     const handleSideBar = () =>{
         if(options) setOptions(false);
@@ -32,10 +32,18 @@ const Navbar = () => {
         e.stopPropagation();
         setClear(!clear);
     }
+
+    const handleTheme = (e) =>{
+        if(theme === 'dark'){
+            setTheme('light');
+        }else{
+            setTheme('dark');
+        }
+    }
     
   return (
     <>
-        <nav className = "absolute top-5 w-full  flex justify-between px-5 dark:text-white">
+        <nav className = "absolute top-5 w-full  flex justify-between px-5 dark:text-white z-10">
             <div>
                 <button 
                 className = "h-12 px-5 border-2 border-red-500 rounded-md hover:bg-red-500 hover:text-white"
@@ -96,7 +104,7 @@ const Navbar = () => {
                 </button>
                 <button 
                 className = "h-12 px-5 border-2 border-red-500 rounded-md hover:bg-red-500 hover:text-white"
-                onClick = {() => setDarkMode(!darkMode)}>
+                onClick = {handleTheme}>
                     <MdOutlineLightMode/>
                 </button>
             </div>
@@ -109,9 +117,9 @@ const Navbar = () => {
         </section>
 
         <section className = "fixed bottom-10 right-10 flex gap-5 dark:text-white">
-            <button onClick = { () => onZoom(-0.01)}> - </button>
+            <button onClick = { () => onZoom(-0.1)}> - </button>
             <span onClick = {() => setScale(1)}> {new Intl.NumberFormat("en-GB", { style: "percent"}).format(scale)} </span>
-            <button onClick = {() => onZoom(0.01)}> + </button>
+            <button onClick = {() => onZoom(0.1)}> + </button>
         </section>
         {
             options && (

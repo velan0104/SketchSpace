@@ -99,7 +99,6 @@ function Canvas() {
         ctx.save()
         ctx.translate(panOffset.x * scale - scaleOffsetX ,panOffset.y * scale - scaleOffsetY);
         ctx.scale(scale,scale);
-        ctx.fillRect(50,50,100,100);
 
         if(imagePath){
             console.log("Image Path: " , imagePath)
@@ -185,7 +184,7 @@ function Canvas() {
 
 
     return (
-        <div >
+        <div className = "overflow-hidden">
             {action === 'writing' && (
             <textarea 
             ref = {textRef} 
@@ -202,7 +201,7 @@ function Canvas() {
                 onMouseMove={ handleMouseMove }
                 onMouseUp={ handleMouseUp }
                 ref = {canvasRef}
-                style = {{ position: "absolute"}}
+                // style = {{ position: "absolute"}}
                 />
             </div>
             <input ref = {imageRef} type = "file" className = "hidden" />
